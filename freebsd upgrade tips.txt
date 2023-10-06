@@ -1,0 +1,65 @@
+fonte: https://www.reddit.com/r/freebsd/comments/10b1l3p/why_is_freebsd_awesome_reliability_let_me_tell/
+
+Up to date OS, now the software (ports)...
+
+Then the bigger problem: the software. This was dependency hell at its finest because I'm pretty sure that the previous admin mixed up binary packages with ports, which is a pretty big nono. First I trashed /usr/ports (after checking /usr/ports/packages and 'distfiles' to make sure everything was somewhat normal there) and then used Git again to check out the latest ports tree.
+
+Next stop: studying /usr/ports/Mk/bsd.default-versions.mk and applying the necessary changes to /etc/make.conf, in specific the "DEFAULT_VERSIONS+=" line. DB5 is no longer maintained, Python 3.7 is old and on the verge of going EOL (not to mention the changed requirements for Python 2 and 3), and don't get me started on PHP... or LLVM.
+
+This is why I'm very happy with ports-mgmt/portmaster. That critter is priceless sometimes.
+
+For example... databases/db5 had to be replaced by databases/db18. That has impact because much software uses it, most notoriously: devel/apr1 which in itself is also used by many.
+
+Don't take my word for it: pkg info -rx apr-1 db18. Notice how db18 is also required by apr1?
+
+SO...
+
+    portmaster -o /usr/ports/databases/db18 databases/db5
+
+    portmaster -f --force-config -r databases/db18
+
+    portmaster -f --force-config -r devel/apr1
+
+This is the power of Portmaster for you... first I told it to replace/upgrade db5 with db18. Then I told it to forcefully rebuild & reinstall everything that depends on db18 while also showing me all the configuration screens. Next I did the same thing for apr1.
+
+It is at this time when sqlite3 fails to build for some reason. Fortunately this doesn't have to pose a problem perse:
+
+    ports/sqlite3 # make clean
+
+    ports/sqlite3 # portmaster -f --force-config `make build-depends-list`
+
+    ports/sqlite3 # make build
+
+First I clean up the mess from the previous build. Then... since the build failed and considering the still shoddy state of this server I'm not going to assume that it could be related to the port, instead: my bet is on any of the required libraries or programs needed to build all this. As such I tell Portmaster to rebuild everything which is required for building this specific port, while also showing me any config screens if there are any. Turns out that messing with TCL86's config isn't the best of ideas 🙄
+
+Dependencies build, then the sqlite3 port also builds cleanly and can be reinstalled.
+
+It is at this time when we check how big of an impact it will have if we take down the Apache webserver, eventually needed to get rid of a horribly outdated PHP.
+
+First I decide to "mock trash" PHP so that I can see what it might trigger:
+
+    pkg delete -nx php7
+
+Now that I identified which software is actually using it we wait for the right time and then go ahead:
+
+    pkg delete -fx php7
+
+    portmaster -f --force-config -t <undisclosed software package>
+
+When this is finished it's time for the other part:
+
+    portmaster -f --force-config <second undisclosed package>
+
+Now that all this is out of the way I decide to play it safe:
+
+    portmaster -ft www/apache24
+
+So what's the big deal?
+
+The "big deal" IMO is FreeBSD's excellent documentation and resources. As mentioned above: /usr/ports/Mk was a huge help for me to identify outdated software so that I could upgrade that mess one by one.
+
+But second... not mentioned above because I want to make sure that this isn't picked up as something that you casually do... as said this was a bit of a mission critical system, so the idea was to try and reduce downtime to a minimum.
+
+See, portmaster(8) is a work of art ;) In many cases above we didn't immediately (re)install, all I did was to make sure that, say, "databases/sqlite3" could be build. And then I left it at that while adding "databases/sqlite3" to /root/ITodo. And moved onto other specific ports. Eventually followed by: "portmaster -C `cat /root/ITodo`".
+
+In other words: telling portmaster to reinstall a specific list of ports without first running "make clean" thus fully utilizing the state which I had already set up. Resulting in a rather speedy and clean reinstallation while still using the ports collection.
