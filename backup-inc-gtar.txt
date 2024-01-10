@@ -1,0 +1,94 @@
+#!/bin/sh
+
+TAR="/bin/tar"
+LOG="/var/log/backup.log"
+LOCAL_BKDIR="/mnt/backup"
+KEEP_LOCAL=4
+cd /
+
+echo "starting backup $(date +%Y-%m-%d_%H:%M)" >> $LOG
+
+do_backup() {
+	DT="$(date +%Y-%m-%d_%H%M)"
+	PROJ=$1
+	PROJ_PATH=$2
+	ISFULL=$3
+        LOCAL_BKDIR="/mnt/backup/${PROJ}"
+	SNAP_FILE="${LOCAL_BKDIR}/${PROJ}.snap"
+	echo -n "init: $PROJ: $(date +%H:%M) - " >> $LOG
+	cd /
+
+	if [ ! -d ${LOCAL_BKDIR} ]; then
+		mkdir ${LOCAL_BKDIR}
+	fi
+	if [ -f ${LOCAL_BKDIR}/${H}-*-full.tar.gz ]; then
+		# Takes the incremented backup level-1 or above using file according to $SNAP_FILE and append 1 to the snapshot file.
+		find ${LOCAL_BKDIR} -name "${PROJ}*-partial.tar.gz" -maxdepth 1 -type f -mtime +${KEEP_LOCAL} -print >> /tmp/bk2remove.txt
+		find ${LOCAL_BKDIR} -name "${PROJ}*-partial.tar.gz" -maxdepth 1 -type f -mtime +${KEEP_LOCAL} -exec rm {} \;
+
+                ${TAR} --listed-incremental=${SNAP_FILE}.1 -czf ${LOCAL_BKDIR}/${PROJ}-${DT}-partial.tar.gz ${PROJ_PATH}/${PROJ}
+		# overwrite snap file, so we take a level 1 backup again
+		cp ${SNAP_FILE}.0 ${SNAP_FILE}.1
+		echo "partial backup: ${PROJ}"
+		
+	else
+		# Same thing, but takes full backup and add prefix "full" on the backup file
+		echo "Doing full backup: ${PROJ}"
+		${TAR} --listed-incremental=${SNAP_FILE}.0 -czf ${LOCAL_BKDIR}/${PROJ}-${DT}-full.tar.gz ${PROJ_PATH}/${PROJ} 
+		cp ${SNAP_FILE}.0 ${SNAP_FILE}.1
+	fi
+	echo "end.: $(date +%H:%M)" >> $LOG
+}
+
+rm /tmp/bk2remove.txt
+
+/sbin/mount.nfs 192.168.0.250:/mnt/scolfield ${LOCAL_BKDIR}
+rval="`df -h|grep scolfield`"
+if [ -z "$rval" ]; then
+        logger -t backup "NFS share mount failed"
+        exit 1
+fi
+
+dspace=$(df -h|grep backup|cut -d' ' -f9|tr % ' ')
+if [ ${dspace} -gt 90 ]; then
+	echo "to:victorio@felipe.center" >> $email
+	echo "subject: ** HD free space 90% FELIPE Center" >> $email
+	echo "from: postmaster@felipe.center" >> $email
+	echo " " >> $email
+	echo "HD free space on greg is 90%" >> $email
+	echo " " >> $email
+	sendmail -t $email
+fi
+
+# Always take a config-only backup
+DT="$(date +%Y-%m-%d_%H%M)"
+#${TAR} -cJf ${LOCAL_BKDIR}/scolfield-${DT}-config.tar.xz root etc/hosts etc/sysconfig/network-scripts/ifcfg-eth0  /etc/dhcp/dhcpd.conf etc/named.conf var/named etc/samba var/lib/samba
+
+#for H in projcompartilhado ; do
+#	if [ -f ${LOCAL_BKDIR}/${H}-*-full.tar.gz ]; then
+#		do_backup "${H}" "home" 0
+#	else
+#		do_backup "${H}" "home" 1
+#	fi
+#done
+
+
+for H in airsoftshop associacaoengenharia contas_pagar cursos desenvolvimento documentosinternos estanciadama folha_pagamento  financeiro gilberto  juridico loja loja_clientes marketing obras orcamentos pacheco pericias plotagem programas projetos publico rh_seg sistema verajulia xml ; do
+	if [ -f ${LOCAL_BKDIR}/${H}-*-full.tar.gz ]; then
+		do_backup "${H}" "home/samba" 0
+	else
+		do_backup "${H}" "home/samba" 1
+	fi
+done
+
+# backup citel
+/root/get-backup-citel.sh
+
+rsync -a --delete /home/samba/fotos/. /mnt/backup/fotos/
+
+sync
+umount /mnt/backup
+
+echo "ending backup: $(date +%Y-%m-%d_%H:%M)" >> $LOG
+
+

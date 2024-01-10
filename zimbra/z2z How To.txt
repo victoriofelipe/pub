@@ -1,0 +1,86 @@
+Z2Z How to
+
+Considerações:
+Deve ser utilizado um diretório para backup, por exemplo /export. O diretório poder ser um compartilhamento via rede com espaço disponível para armazenar o backup.
+
+Lembre-se que caso queira exportar as caixas de correio, o espaço necessário deve ser 5% maior que o tamanho dos diretórios store e index do zimbra. Pode-se checar o tamanho deles com o comando
+
+du -hs /opt/zimbra/store /opt/zimbra/index
+
+Além disso, lembre-se que o processo de backup das caixas de correio é demorado e pode levar horas dependendo do espaço utilizado, portanto recomenda-se executar os comandos dentro de um emulador de terminal, como o tmux ou o screen, para evitar que o processo seja interrompido por queda e/ou falha de conexão com o servidor.
+
+Deve-se fazer o upload do arquivo em anexo z2z.zip para o servidor zimbra. Normalmente utiliza-se o WinSCP ou software com suporte ao protocolo sFTP. Considere que o arquivo foi copiado para /root/z2z.zip
+
+Quando houver um # no início da linha, o comando deve ser executado como usuário root
+Quando houver um $ no início da linha, o comando deve ser executado como usuário zimbra
+
+Descompactar o arquivo z2z.zip no diretório de backup:
+
+# cd /export 
+# unzip /root/z2z.zip
+# chown -R zimbra:zimbra /export
+# su -l zimbra
+$ cd /export/Z2Z-master
+$ find . -type f -name "*.sh" -exec chmod +x {} \;
+$ ./z2z.sh
+
+Passo 1:
+O script irá perguntar se deseja continuar, responda "sim"
+
+'OK: Executando como Zimbra.
+'++++++++++++++++++++++++++++++++++++++++
+Continuar (sim/nao)?
+
+Passo 2:
+O script irá perguntar "O Hostname do servidor do Zimbra sera alterado (sim/nao)?"
+Responda sim
+Depois
+'Informe o novo hostname do servidor Zimbra: 
+Responda: dc02bsmx14.optimiz.com.br e depois tecle <ENTER>
+
+Irá ficar conform abaixo:
+'Informe o novo hostname do servidor Zimbra: dc02bsmx14.optimiz.com.br
+
+Passo 3:
+O script irá perguntar "Deseja exportar as caixas postais (sim/nao)?"
+Responda sim
+
+Depois 
+'Informe qual sera o diretorio utilizado para exportacao:
+Responda /export
+
+Passo 4:
+Após isso os script irá finalizar. Execute o comando abaixo
+tar -cf zimbra-z2z-ldap.tar export
+
+Copie o arquivo /export/Z2Z-master/zimbra-z2z-ldap.tar usando o software WinSCP ou equivalmente e nos envie esse arquivo.
+
+Passo 5 (necessário apenas se já não possui um backup feito pelo zmmailbox):
+Para exportar as caixas de correio, basta executar os comandos abaixo:
+
+Execute apenas o primeiro comando somente se estiver logado como usuário root
+# su -l zimbra
+$ cd /export/Z2Z-master/export
+$ ./script_export_FULL.sh
+
+Os arquivos de backup das contas serão gerados no /export/NOME_DA_CONTA.tgz. Será necessários enviar esses arquivos para fazermos o importe das informações das contas.
+
+Imagine que todo esse procedimento já foi realizado, contudo a virada será feita em outro dia. Nesse tempo, novas informações foram adicionados em muitas contas. É possível gerar um backup contendo apenas os dados mais recentes e importá-lo no novo servidor.
+
+Caso o backup anterior ainda exista, será necessário mover os arquivos NOME_DA_CONTA.tgz para outro diretório.
+
+Vamos utilizar o z2z conforme anteriormente. Basta modificar o arquivo script_export_FULL.sh para criamos esse backup apenas com as informações mais recentes.
+
+
+$ cd /export/Z2Z-master/export
+$ cp script_export_FULL.sh script_export_parcial.sh
+$ sed  -i 's/tgz\"/tgz\&start=-7days\"/g' script_export_parcial.sh
+
+
+Troque o 7 pela quantidade de dias anteriores necessários. Por exemplo, se se passaram 15 dias do backup FULL, troque 7 por 15, por exemplo:
+
+$ sed  -i 's/tgz\"/tgz\&start=-15days\"/g' script_export_parcial.sh
+
+Agora, basta executar o script:
+
+$ ./script_export_parcial.sh

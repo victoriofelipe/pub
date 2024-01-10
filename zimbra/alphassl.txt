@@ -1,0 +1,27 @@
+https://support.globalsign.com/ca-certificates
+
+Baixado o Interface Certificate Alpha G4
+Baixado o Root Certificate GlobalSign R1
+
+Ver o certificado:
+openssl x509 -in mail-gruporamasa-com.crt -text
+
+verique o issuer (quem assinou o certificado, o CA)
+
+baixei os certificados intermediário e root
+
+cat alpha-g4.crt globalsign-r1.crt >  Alpha-bundle.crt
+
+remove a senha do da key
+openssl rsa -in mail-gruporamasa-com.key -out mail-gruporamasa-com.key.nopass
+
+verifica se está tudo certo:
+zmcertmgr verifycrt comm mail-gruporamasa-com.key mail-gruporamasa-com.crt  Alpha-bundle.crt
+
+instala o novo certificado:
+cp mail-gruporamasa-com.key.nopass /opt/zimbra/ssl/zimbra/commercial/commercial.key
+zmcertmgr deploycrt comm "/tmp/alphasslzm/mail-gruporamasa-com.crt" "/tmp/alphasslzm/Alpha-bundle.crt"
+zmcontrol restart 
+
+converter certificado para pfx/pkcs12
+ openssl pkcs12 -export -out luson-zimbra.pfx -inkey /opt/zimbra/ssl/zimbra/server/server.key -in /opt/zimbra/ssl/zimbra/server/server.crt -certfile /opt/zimbra/ssl/zimbra/ca/ca.pem
