@@ -12,13 +12,13 @@
 # scp/ssh command, so we need an user with permission the get the xml file
 #
 # db/server.txt example:
-#NAME=alta-contabilidade
-#IP1=vivocontabilidade.ddns.com.br
-#USER=baitz
-#PASS=k3y!@#B@!tz
-#PROTO=http
-#HTTPPORT=8001
-#SSHPORT=22022
+#NAME=cliente-matriz
+#IP1=climatriz.ddns.com.br
+#USER=backupuser
+#PASS=bkpass
+#PROTO=https
+#HTTPPORT=8080
+#SSHPORT=2222
 #METHOD=SSH (OPTIONAL)
 #
 
